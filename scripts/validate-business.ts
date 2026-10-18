@@ -44,6 +44,12 @@ for (const src of referenced) {
   }
 }
 
+/* 1b. Превью ссылки: og:image должен существовать, иначе мессенджеры
+   покажут пустую карточку. Картинка собирается `npm run og`. */
+if (!existsSync(path.join(root, "public", "og-image.jpg"))) {
+  problems.push("Нет public/og-image.jpg — ссылка в мессенджерах развернётся без картинки (собрать: npm run og)");
+}
+
 /* 2. Unused assets are only a warning — reported after code references are
    collected in section 6, so component-level image paths count too. */
 

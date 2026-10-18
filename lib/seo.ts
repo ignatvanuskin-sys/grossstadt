@@ -34,7 +34,21 @@ export function pageMetadata({
   image?: string;
 }): Metadata {
   const descriptionText = description ?? business.seo.description;
-  const url = `${siteUrl.replace(/\/$/, "")}${path}`;
+  const base = siteUrl.replace(/\/$/, "");
+  const url = `${base}${path}`;
+  /**
+   * Превью ссылки в мессенджерах. Картинка собирается `npm run og` из кадра
+   * первого экрана: без неё ссылка в WhatsApp или Telegram разворачивалась
+   * в пустую карточку с одной строкой текста, хотя twitter:card уже обещал
+   * large image.
+   */
+  const shareImage = {
+    url: `${base}/og-image.jpg`,
+    width: 1200,
+    height: 630,
+    alt: `${business.studio.name} — дизайн интерьера в Астане`,
+  };
+  const shareUrl = image ? (image.startsWith("http") ? image : `${base}${image}`) : shareImage.url;
 
   return {
     title,
@@ -50,13 +64,13 @@ export function pageMetadata({
       title,
       description: descriptionText,
       url,
-      images: image ? [{ url: image, width: 1200, height: 630 }] : undefined,
+      images: [{ ...shareImage, url: shareUrl }],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description: descriptionText,
-      images: image ? [image] : undefined,
+      images: [shareUrl],
     },
   };
 }

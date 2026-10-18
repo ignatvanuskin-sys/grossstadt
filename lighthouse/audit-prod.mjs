@@ -101,6 +101,9 @@ for (const route of routes) {
   if (item.ogImage && !/^https?:\/\//.test(item.ogImage)) {
     add("P2", "seo", `${route}: og:image относительный — соцсети не покажут превью`, item.ogImage);
   }
+  if (!item.ogImage) {
+    add("P2", "seo", `${route}: нет og:image — ссылка в WhatsApp развернётся без картинки`);
+  }
   if (!item.jsonLd) add("P3", "seo", `${route}: нет микроразметки JSON-LD`);
   if (item.imgsWithoutAlt) add("P3", "a11y", `${route}: img без alt — ${item.imgsWithoutAlt}`);
 }
@@ -302,6 +305,18 @@ for (const image of imageUrls.slice(0, 12)) {
   if (!/^image\//.test(type)) add("P2", "images", `кадр отдаётся не как изображение (${type})`, image);
 }
 console.log(`изображений проверено: ${Math.min(imageUrls.length, 12)} (всего ${imageUrls.length}), ошибок ${imageFailed}`);
+
+// превью ссылки: картинка должна реально отдаваться
+const shareImage = routeReport.find((r) => r.ogImage)?.ogImage ?? "";
+if (shareImage) {
+  const { res, error } = await get(shareImage);
+  const type = res?.headers.get("content-type") ?? "";
+  if (error || !res || res.status !== 200 || !/^image\//.test(type)) {
+    add("P2", "images", `og:image не отдаётся (${error ?? `HTTP ${res?.status}, ${type}`})`, shareImage);
+  } else {
+    console.log(`og:image: ${shareImage} — ${type}, проверено`);
+  }
+}
 
 // ------------------------------------------------- консистентность контактов
 const contactChecks = {

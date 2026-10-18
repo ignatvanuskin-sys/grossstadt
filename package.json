@@ -9,6 +9,7 @@
     "lint": "next lint",
     "validate": "tsx scripts/validate-business.ts",
     "images": "tsx scripts/optimize-images.ts",
+    "og": "tsx scripts/make-og-image.ts",
     "lh": "node lighthouse/run.mjs",
     "lh:score": "node lighthouse/score.mjs",
     "qa": "node lighthouse/qa-mobile.mjs"

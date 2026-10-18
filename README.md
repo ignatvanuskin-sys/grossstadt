@@ -43,6 +43,7 @@ content/
 public/
   fonts/               # Onest и Manrope, сабсеты latin + cyrillic (woff2), имена фиксированы — объявлены в globals.css
   images/              # 60 обработанных кадров из конвейера sharp
+  og-image.jpg         # превью ссылки 1200×630 (og:image), собирается npm run og
 lib/
   schema.ts            # Zod-схема business.json (несовпадение = падение сборки)
   business.ts          # разобранные данные + хелперы (hasSection, stats, категории)
@@ -59,6 +60,7 @@ app/
 components/            # Header, Hero, Stats, ProjectGrid (+Lightbox), ProjectIndex, Services, Process, Reviews, About, Brief, Faq, Contacts, StickyBar
 scripts/
   optimize-images.ts   # конвейер изображений (sharp) + список исключённых кадров с причинами
+  make-og-image.ts     # превью ссылки 1200×630 из кадра первого экрана (npm run og)
   validate-business.ts # сборка-гейт
 scrape/                # сырьё и одноразовые скрипты сбора (в сборку не попадают)
 lighthouse/            # замеры и проверки: score.mjs, qa-mobile.mjs (CDP-тапы), audit-prod.mjs, insights.mjs
