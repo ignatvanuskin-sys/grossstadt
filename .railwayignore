@@ -1,0 +1,11 @@
+// Railway загружает контекст сборки из этой папки. Исключаем всё, что
+// воспроизводится на сборке или не нужно серверу: зависимости, прошлую сборку,
+// сырьё скрейпинга и отчёты Lighthouse. Нужны только app/, components/, lib/,
+// content/, public/, scripts/, конфиги и package-lock.json.
+node_modules
+.next
+scrape/raw
+lighthouse
+tsconfig.tsbuildinfo
+.env*
+*.log

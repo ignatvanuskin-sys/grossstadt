@@ -1,0 +1,10 @@
+# Текстовые файлы храним с LF, чтобы коммиты не зависели от настроек ОС.
+* text=auto eol=lf
+
+# Бинарные форматы не трогаем.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.woff2 binary
+*.ico binary
