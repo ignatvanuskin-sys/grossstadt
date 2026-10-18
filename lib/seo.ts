@@ -6,7 +6,21 @@ import { business, isDemo } from "@/lib/business";
  * `noindex, nofollow` plus the robots.txt disallow in app/robots.ts.
  */
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+/**
+ * Канонический адрес сайта. Приоритет: явная переменная, затем адрес деплоя
+ * (Vercel подставляет VERCEL_PROJECT_PRODUCTION_URL и VERCEL_URL на сборке),
+ * и только в крайнем случае — локальный сервер. Без этого canonical, og:url,
+ * robots.txt и sitemap.xml уезжали на localhost прямо в проде.
+ */
+function resolveSiteUrl(): string {
+  const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (explicit) return explicit;
+  const deployment = process.env.VERCEL_PROJECT_PRODUCTION_URL ?? process.env.VERCEL_URL;
+  if (deployment) return `https://${deployment}`;
+  return "http://localhost:3000";
+}
+
+const siteUrl = resolveSiteUrl();
 
 export function pageMetadata({
   title,

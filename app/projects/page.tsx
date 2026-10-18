@@ -1,5 +1,5 @@
 import { business, projects } from "@/lib/business";
-import { pageMetadata } from "@/lib/seo";
+import { pageMetadata, siteUrlBase } from "@/lib/seo";
 import { plural } from "@/lib/format";
 import { SectionHead } from "@/components/SectionHead";
 import { ProjectGrid } from "@/components/ProjectGrid";
@@ -26,9 +26,27 @@ export default async function ProjectsPage({
 
   return (
     <div className="section">
+      {
+        // Коллекция проектов: тип CollectionPage честно описывает страницу-каталог,
+        // без выдуманных рейтингов и цен.
+      }
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "CollectionPage",
+            name: "Все проекты студии",
+            description: `Каталог из ${projects.length} проектов студии ${business.studio.name}: интерьеры квартир, домов и коммерческих пространств.`,
+            url: `${siteUrlBase}/projects`,
+            isPartOf: { "@type": "WebSite", name: business.studio.name, url: siteUrlBase },
+          }).replace(/</g, "\\u003c"),
+        }}
+      />
       <div className="shell">
         <SectionHead
           id="catalog-title"
+          as="h1"
           eyebrow="Каталог"
           title="Все проекты студии"
           lede={`${projects.length} ${plural(

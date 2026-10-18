@@ -190,7 +190,7 @@ export function ProjectGrid({
                 <h3 className="mt-2.5 font-display text-[1.1875rem] leading-snug text-ink">
                   <a
                     href={`/projects/${project.slug}`}
-                    className="link-underline group-hover:decoration-[#8A6C3A]"
+                    className="link-underline group-hover:decoration-[#846733]"
                   >
                     {project.title}
                   </a>

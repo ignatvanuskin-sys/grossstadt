@@ -18,10 +18,12 @@ const config: Config = {
         line: "#161616",
         night: "#141414",
         "night-2": "#1C1C1B",
-        brass: "#8A6C3A",
+        // brass — фирменный акцент. Значение подобрано под требование 4.5:1
+        // на светлых фонах (#F4F2EE — самый тёмный из них): прежний #8A6C3A
+        // давал 4.38:1 и валил axe по контрасту.
+        brass: "#846733",
         "brass-lit": "#D9BC85",
-        "brass-dim": "#B49866",
-      },
+        "brass-dim": "#B49866",      },
       fontFamily: {
         display: ["var(--font-display)", "system-ui", "sans-serif"],
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],

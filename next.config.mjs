@@ -17,6 +17,27 @@ const nextConfig = {
       { key: "X-Content-Type-Options", value: "nosniff" },
       { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
     ];
+    if (process.env.NODE_ENV === "production") {
+      // У сайта нет ни одного внешнего подключения: шрифты и скрипты свои,
+      // картинки идут через собственный оптимизатор. Поэтому CSP закрывает всё,
+      // кроме своего origin. 'unsafe-inline' нужен инлайновым скриптам гидратации
+      // Next — от подмены внешнего источника это всё равно защищает.
+      headers.push({
+        key: "Content-Security-Policy",
+        value: [
+          "default-src 'self'",
+          "script-src 'self' 'unsafe-inline'",
+          "style-src 'self' 'unsafe-inline'",
+          "img-src 'self' data: blob:",
+          "font-src 'self'",
+          "connect-src 'self'",
+          "form-action 'self'",
+          "frame-ancestors 'none'",
+          "base-uri 'self'",
+          "object-src 'none'",
+        ].join("; "),
+      });
+    }
     if (isDemo) {
       // Demo concept: never index, never leak into search results.
       headers.push({ key: "X-Robots-Tag", value: "noindex, nofollow, noarchive, nosnippet" });

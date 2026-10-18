@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { business, projectBySlug, projects } from "@/lib/business";
-import { pageMetadata } from "@/lib/seo";
+import { pageMetadata, siteUrlBase } from "@/lib/seo";
 import { Figure, FillImage, KindBadge } from "@/components/Figure";
 import { formatArea, formatDate } from "@/lib/format";
 import { whatsappForProject } from "@/lib/whatsapp";
@@ -61,6 +61,29 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
 
   return (
     <article className="section">
+      {
+        // Разметка хлебных крошек повторяет видимую навигацию страницы:
+        // Главная → Проекты → название. Ничего, чего нет на экране.
+      }
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              { "@type": "ListItem", position: 1, name: "Главная", item: siteUrlBase },
+              { "@type": "ListItem", position: 2, name: "Проекты", item: `${siteUrlBase}/projects` },
+              {
+                "@type": "ListItem",
+                position: 3,
+                name: project.title,
+                item: `${siteUrlBase}/projects/${project.slug}`,
+              },
+            ],
+          }).replace(/</g, "\\u003c"),
+        }}
+      />
       <div className="shell">
         <nav aria-label="Хлебные крошки" className="font-sans text-micro uppercase">
           <ol className="flex flex-wrap items-center gap-x-2 gap-y-1 text-muted">

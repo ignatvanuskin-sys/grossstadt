@@ -16,11 +16,12 @@
  *   node lighthouse/qa-mobile.mjs projects    — каталог + лайтбокс
  *   node lighthouse/qa-mobile.mjs widths      — 320/360/375/390/412/430
  *   node lighthouse/qa-mobile.mjs brief       — воронка брифа до WhatsApp
+ *   node lighthouse/qa-mobile.mjs menu        — бургер-меню, FAQ и axe-core
  *   node lighthouse/qa-mobile.mjs desktop     — десктопные регрессии
  *   node lighthouse/qa-mobile.mjs all         — всё подряд (по умолчанию home)
  */
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -462,6 +463,33 @@ async function key(name, code, vk) {
   await sleep(120);
 }
 
+/**
+ * Нажатие с клавиатуры так, как его видит браузер: с текстом символа, поэтому
+ * Chrome срабатывает на элементе в фокусе (кнопка на Enter/Space получает click).
+ * `key()` для этого не годится — rawKeyDown не запускает действие по умолчанию.
+ */
+async function pressKey(keyName, code, vk, char) {
+  await cdp.send(
+    "Input.dispatchKeyEvent",
+    {
+      type: "keyDown",
+      key: keyName,
+      code,
+      windowsVirtualKeyCode: vk,
+      nativeVirtualKeyCode: vk,
+      text: char,
+      unmodifiedText: char,
+    },
+    sessionId,
+  );
+  await cdp.send(
+    "Input.dispatchKeyEvent",
+    { type: "keyUp", key: keyName, code, windowsVirtualKeyCode: vk, nativeVirtualKeyCode: vk },
+    sessionId,
+  );
+  await sleep(300);
+}
+
 const scrollTo = async (y) => {
   await evaluate(`window.scrollTo(0, ${y}); window.scrollY`);
   await sleep(450);
@@ -471,6 +499,44 @@ const scrollEnd = async () => {
   await evaluate("window.scrollTo(0, document.documentElement.scrollHeight); window.scrollY");
   await sleep(600);
 };
+
+/**
+ * Скрипт axe-core кэшируется во временной папке: после первого скачивания
+ * прогон работает без сети, а в репозиторий чужой бандл не попадает.
+ */
+const axeCachePath = join(tmpdir(), "axe-core-4.10.2.min.js");
+async function loadAxe() {
+  if (existsSync(axeCachePath)) return readFileSync(axeCachePath, "utf8");
+  const res = await fetch("https://cdn.jsdelivr.net/npm/axe-core@4.10.2/axe.min.js");
+  if (!res.ok) throw new Error(`axe-core не скачался: HTTP ${res.status}`);
+  const source = await res.text();
+  writeFileSync(axeCachePath, source);
+  return source;
+}
+
+/** Прогон axe-core на текущей странице: возвращает нарушения по правилам. */
+async function axeAudit() {
+  const source = await loadAxe();
+  // Инъекция через Runtime.evaluate: Page.addScriptTag в этом Chrome недоступен,
+  // а результат выражения гасим через `;true`, иначе returnByValue упрётся в объект.
+  await evaluate(`${source}\n;true`);
+  return evaluate(
+    `axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] } }).then((r) => ({
+      violations: r.violations.map((v) => ({
+        id: v.id,
+        impact: v.impact,
+        nodes: v.nodes.length,
+        help: v.help,
+        target: v.nodes[0] ? v.nodes[0].target.join(' ') : null,
+        html: v.nodes[0] ? String(v.nodes[0].html).slice(0, 160) : null,
+        reason: v.nodes[0] && v.nodes[0].any[0] ? String(v.nodes[0].any[0].message).slice(0, 220) : null,
+      })),
+      passes: r.passes.length,
+      incomplete: r.incomplete.map((v) => v.id),
+    }))`,
+    { awaitPromise: true },
+  );
+}
 
 const dialogInfo = () =>
   evaluate(
@@ -1254,6 +1320,204 @@ async function scenarioBrief() {
   await picture("m-390-brief-sent");
 }
 
+/**
+ * Мобильная навигация, FAQ и автоматический аудит доступности (axe-core):
+ * проверяем то, что не покрывают остальные сценарии.
+ */
+async function scenarioMenu() {
+  await setViewport(390, 844);
+  await goto("/");
+
+  const burger = 'button[aria-controls="mobile-nav"]';
+
+  /* --- бургер-меню --- */
+  await tap(burger);
+  await waitFor(`document.querySelector('#mobile-nav') && !document.querySelector('#mobile-nav').hidden`, {
+    label: "меню открылось",
+  });
+  const opened = await evaluate(
+    `(() => {
+      const nav = document.querySelector('#mobile-nav');
+      const button = document.querySelector(${JSON.stringify(burger)});
+      const links = [...nav.querySelectorAll('a')].map((a) => ({
+        text: a.textContent.trim().slice(0, 28),
+        h: Math.round(a.getBoundingClientRect().height),
+      }));
+      const firstLink = nav.querySelector('a');
+      const windowTop = window.scrollY;
+      return {
+        expanded: button.getAttribute('aria-expanded'),
+        label: button.getAttribute('aria-label'),
+        bodyOverflow: document.body.style.overflow,
+        navHeight: Math.round(nav.getBoundingClientRect().height),
+        firstLinkTop: firstLink ? Math.round(firstLink.getBoundingClientRect().top) : null,
+        burgerBottom: Math.round(button.getBoundingClientRect().bottom),
+        headerTop: Math.round(document.querySelector('header').getBoundingClientRect().top),
+        scrollY: windowTop,
+        links,
+      };
+    })()`,
+  );
+  check(
+    "меню: бургер раскрывает навигацию, aria-expanded=true, подпись меняется",
+    opened.expanded === "true" && opened.label === "Закрыть меню" && opened.navHeight > 200,
+    { expanded: opened.expanded, label: opened.label, navHeight: opened.navHeight },
+  );
+  check(
+    "меню: прокрутка фона заблокирована, меню начинается под шапкой",
+    opened.bodyOverflow === "hidden" && opened.firstLinkTop > opened.burgerBottom - 2,
+    {
+      bodyOverflow: opened.bodyOverflow,
+      headerTop: opened.headerTop,
+      firstLinkTop: opened.firstLinkTop,
+      burgerBottom: opened.burgerBottom,
+      scrollY: opened.scrollY,
+    },
+  );
+  const smallMenuLinks = opened.links.filter((link) => link.h < 44);
+  check(
+    "меню: шесть пунктов и обе кнопки не мельче 44px",
+    opened.links.length >= 8 && smallMenuLinks.length === 0,
+    { links: opened.links, small: smallMenuLinks },
+  );
+  await picture("m-390-menu");
+
+  await key("Escape", "Escape", 27);
+  await sleep(320);
+  const closedByEscape = await evaluate(
+    `(() => {
+      const nav = document.querySelector('#mobile-nav');
+      const button = document.querySelector(${JSON.stringify(burger)});
+      return {
+        hidden: nav.hidden,
+        expanded: button.getAttribute('aria-expanded'),
+        label: button.getAttribute('aria-label'),
+        bodyOverflow: document.body.style.overflow,
+        focusLabel: document.activeElement.getAttribute('aria-label') || document.activeElement.tagName,
+      };
+    })()`,
+  );
+  check(
+    "меню: Escape закрывает, скролл отпускает, фокус остаётся на бургере",
+    closedByEscape.hidden === true &&
+      closedByEscape.expanded === "false" &&
+      closedByEscape.bodyOverflow === "" &&
+      /меню|BUTTON/.test(closedByEscape.focusLabel),
+    closedByEscape,
+  );
+
+  await tap(burger);
+  await waitFor(`!document.querySelector('#mobile-nav').hidden`, { label: "меню открылось повторно" });
+  await tapText("Услуги", { scope: "#mobile-nav", settle: 800 });
+  const afterLink = await evaluate(
+    `(() => ({
+      hash: location.hash,
+      hidden: document.querySelector('#mobile-nav').hidden,
+      sectionTop: Math.round(document.querySelector('#services').getBoundingClientRect().top),
+      headerBottom: Math.round(document.querySelector('header').getBoundingClientRect().bottom),
+    }))()`,
+  );
+  check(
+    "меню: пункт ведёт к секции, меню закрывается, якорь не прячется под шапкой",
+    afterLink.hash === "#services" &&
+      afterLink.hidden === true &&
+      afterLink.sectionTop >= afterLink.headerBottom - 1,
+    afterLink,
+  );
+
+  await goto("/");
+  await evaluate(`document.querySelector(${JSON.stringify(burger)}).focus(); true`);
+  await pressKey("Enter", "Enter", 13, "\r");
+  const openedByKeyboard = await evaluate(`!document.querySelector('#mobile-nav').hidden`);
+  check("меню: открывается с клавиатуры (Enter на бургере)", openedByKeyboard === true, { openedByKeyboard });
+  await key("Escape", "Escape", 27);
+  await sleep(260);
+
+  /* --- FAQ --- */
+  const faqItems = await evaluate(`document.querySelectorAll('#faq details').length`);
+  await evaluate(
+    `(() => {
+      const first = document.querySelector('#faq details');
+      first?.scrollIntoView({ block: 'center', behavior: 'instant' });
+      return true;
+    })()`,
+  );
+  await sleep(600);
+  const faqOpened = await evaluate(
+    `(() => {
+      const items = [...document.querySelectorAll('#faq details')];
+      items.forEach((d) => { d.open = true; });
+      return items.map((d) => {
+        const answer = d.querySelector('p');
+        return {
+          question: d.querySelector('summary').textContent.trim().replace(/\\s+/g, ' ').slice(0, 28),
+          answerChars: answer ? answer.textContent.trim().length : 0,
+          answerHeight: answer ? Math.round(answer.getBoundingClientRect().height) : 0,
+        };
+      });
+    })()`,
+  );
+  check(
+    "FAQ: каждый вопрос раскрывается, ответы не пустые",
+    Array.isArray(faqOpened) &&
+      faqOpened.length >= 3 &&
+      faqOpened.every((item) => item.answerChars > 80 && item.answerHeight > 20),
+    faqOpened,
+  );
+  await picture("m-390-faq");
+
+  await evaluate(`(() => { document.querySelectorAll('#faq details').forEach((d) => { d.open = false; }); return true; })()`);
+  await tap("#faq details summary", { settle: 300 });
+  const faqTapped = await evaluate(
+    `(() => {
+      const first = document.querySelector('#faq details');
+      const answer = first.querySelector('p');
+      return { open: first.open, answerHeight: Math.round(answer.getBoundingClientRect().height) };
+    })()`,
+  );
+  check(
+    "FAQ: тап по вопросу раскрывает ответ (нативные details/summary)",
+    faqTapped.open === true && faqTapped.answerHeight > 20,
+    faqTapped,
+  );
+  await tap("#faq details summary", { settle: 300 });
+  const faqClosed = await evaluate(`document.querySelector('#faq details').open === false`);
+  check("FAQ: повторный тап закрывает вопрос", faqClosed === true, { faqClosed });
+
+  /* --- Доступность: axe-core --- */
+  await goto("/");
+  const homeAxe = await axeAudit();
+  const blockingHome = homeAxe.violations.filter((v) => v.impact === "critical" || v.impact === "serious");
+  check(
+    "axe (главная): нет нарушений уровня critical/serious",
+    blockingHome.length === 0,
+    { blocking: blockingHome, все: homeAxe.violations, passes: homeAxe.passes, incomplete: homeAxe.incomplete },
+  );
+
+  await tap('#projects [aria-label^="Открыть проект"]');
+  await waitFor(`!!document.querySelector('[role="dialog"]')`, { label: "лайтбокс для axe" });
+  await sleep(900);
+  const dialogAxe = await axeAudit();
+  const blockingDialog = dialogAxe.violations.filter((v) => v.impact === "critical" || v.impact === "serious");
+  check(
+    "axe (лайтбокс): нет нарушений уровня critical/serious",
+    blockingDialog.length === 0,
+    { blocking: blockingDialog, все: dialogAxe.violations },
+  );
+  await key("Escape", "Escape", 27);
+  await waitFor(`!document.querySelector('[role="dialog"]')`, { label: "закрыть лайтбокс" }).catch(() => null);
+
+  await goto("/projects");
+  const catalogAxe = await axeAudit();
+  const blockingCatalog = catalogAxe.violations.filter((v) => v.impact === "critical" || v.impact === "serious");
+  check(
+    "axe (каталог): нет нарушений уровня critical/serious, есть h1",
+    blockingCatalog.length === 0 && (await evaluate("document.querySelectorAll('h1').length")) === 1,
+    { blocking: blockingCatalog, все: catalogAxe.violations },
+  );
+  await picture("m-390-catalog-h1");
+}
+
 async function scenarioDesktop() {
   await setViewport(1280, 900, { dsf: 1, mobile: false });
   await goto("/");
@@ -1325,6 +1589,7 @@ try {
   if (scenario === "projects" || scenario === "all") await scenarioProjects();
   if (scenario === "widths" || scenario === "all") await scenarioWidths();
   if (scenario === "brief" || scenario === "all") await scenarioBrief();
+  if (scenario === "menu" || scenario === "all") await scenarioMenu();
   if (scenario === "desktop" || scenario === "all") await scenarioDesktop();
 } catch (error) {
   console.error(`\nсбой сценария: ${error?.message ?? error}`);

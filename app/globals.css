@@ -101,12 +101,13 @@
   }
 
   :focus-visible {
-    outline: 2px solid #8a6c3a;
+    outline: 2px solid #846733;
     outline-offset: 3px;
     border-radius: 2px;
   }
 
   .on-night :focus-visible,
+  .on-night-2 :focus-visible,
   .on-night:focus-visible {
     outline-color: #d9bc85;
   }
@@ -147,7 +148,10 @@
     @apply font-sans text-micro uppercase text-muted;
   }
 
-  .on-night .eyebrow {
+  /* На тёмной поверхности серый text-muted даёт 3.2:1 — подписи перекрашиваются
+   * в светлое. Панель лайтбокса использует on-night-2, поэтому правило общее. */
+  .on-night .eyebrow,
+  .on-night-2 .eyebrow {
     color: rgba(242, 240, 235, 0.62);
   }
 
@@ -346,10 +350,11 @@
   }
 
   .link-underline {
-    @apply underline decoration-[1px] underline-offset-[6px] decoration-[rgba(22,22,22,0.32)] transition-colors hover:decoration-[#8A6C3A];
+    @apply underline decoration-[1px] underline-offset-[6px] decoration-[rgba(22,22,22,0.32)] transition-colors hover:decoration-[#846733];
   }
 
-  .on-night .link-underline {
+  .on-night .link-underline,
+  .on-night-2 .link-underline {
     @apply decoration-[rgba(242,240,235,0.4)] hover:decoration-[#D9BC85];
   }
 

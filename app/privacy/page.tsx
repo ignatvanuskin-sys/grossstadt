@@ -1,5 +1,5 @@
 import { business, isDemo } from "@/lib/business";
-import { pageMetadata } from "@/lib/seo";
+import { pageMetadata, siteUrlBase } from "@/lib/seo";
 import { formatDate } from "@/lib/format";
 import { whatsappDefault } from "@/lib/whatsapp";
 
@@ -44,6 +44,23 @@ const rules = [
 export default function PrivacyPage() {
   return (
     <div className="section">
+      {
+        // Страница-документ: WebPage с честным описанием, без выдуманных полей.
+      }
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "WebPage",
+            name: "Как устроен этот концепт",
+            description:
+              "Из каких открытых источников собраны данные концепта, что не публикуется и какие блоки не показываются.",
+            url: `${siteUrlBase}/privacy`,
+            isPartOf: { "@type": "WebSite", name: business.studio.name, url: siteUrlBase },
+          }).replace(/</g, "\\u003c"),
+        }}
+      />
       <div className="shell">
         <div className="grid gap-6 border-t border-[var(--rule)] pt-7 lg:grid-cols-12 lg:gap-10">
           <div className="lg:col-span-4">
