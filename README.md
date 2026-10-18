@@ -81,14 +81,14 @@ lighthouse/            # замеры и проверки: score.mjs, qa-mobile.
 
 | Категория | Оценка | Как измерено |
 | --- | --- | --- |
-| Performance | **92–95 / 100** | взвешенный расчёт (`lighthouse/score.mjs`): 91,7 в локальном прогоне `home.json`, 95,3 против живого Vercel (`live-prod-mobile.json`); в более ранних `home7.json` / `home8.json` / `live.json` — тот же коридор |
+| Performance | **92–96 / 100** | взвешенный расчёт (`lighthouse/score.mjs`): 91,7 в локальном прогоне `home.json`, 95,3 и 95,6 против живого Vercel (`live-prod-mobile.json`, `live-prod2.json`); в более ранних `home7.json` / `home8.json` / `live.json` — тот же коридор |
 | Accessibility | **100 / 100** | браузерный прогон, 0 проваленных аудитов |
 | Best Practices | **100 / 100** | браузерный прогон |
 | SEO | **100 / 100** | браузерный прогон; в CLI-версии `is-crawlable` намеренно падает — демо закрыто `noindex` |
 
 Взвешенные метрики в скобках — локальный `home.json` / живой `live-prod-mobile.json`: FCP 1,1 с / 1,2 с, Speed Index 1,1 с / 4,0 с, LCP 3,4 с / 2,5 с, TBT 40 мс / 20 мс, CLS 0 / 0. Во всех прогонах CLS = 0 — интерфейс не «дёргается».
 
-**Проверка боевого демо** (`lighthouse/live-prod-mobile.json` — прогон против https://grossstadt.vercel.app): Performance **95,3** на мобильном профиле (взвешенный расчёт), TBT 20 мс, CLS 0; Accessibility и Best Practices — без проваленных аудитов, консоль чистая, документ 35 КБ по сети, сервер отвечает за десятки миллисекунд (`server-response-time` 75 мс). До переезда демо жило на Railway (`lighthouse/live.json`): Performance 94,8, TTFB 195 мс — разница в пределах шума симулятора, то есть переезд ничего не ухудшил.
+**Проверка боевого демо** (`lighthouse/live-prod-mobile.json`, `live-prod2.json` — прогоны против https://grossstadt.vercel.app): Performance **95,3–95,6** на мобильном профиле (взвешенный расчёт), LCP 2,5 с, TBT 20–40 мс, CLS 0; Accessibility и Best Practices — без проваленных аудитов, консоль чистая, документ 26–35 КБ по сети, сервер отвечает за десятки миллисекунд. До переезда демо жило на Railway (`lighthouse/live.json`): Performance 94,8, TTFB 195 мс — разница в пределах шума симулятора, то есть переезд ничего не ухудшил.
 
 **Разрыв между симуляцией и реальной трассой.** Симулированный LCP держится в диапазоне 2,5–3,4 с: 2,5 с — живой Vercel, 3,4 с — локальный прогон на занятой машине (реальная трасса того же прогона даёт LCP 0,31 с при TBT ≈ 40 мс). Причина расхождения: симулятор Lighthouse (Lantern) строит «пессимистичный» граф всех узлов, начатых до LCP, и на канале 1,6 Мбит/с складывает в LCP всю стартовую нагрузку (~450 КБ: документ 42 КБ, скрипты ~160 КБ, изображения первого экрана ~153 КБ, шрифты 67,6 КБ). Чтобы гарантированно опустить симулированный LCP ниже 2,5 с, пришлось бы выкинуть из первого экрана часть контента — это ухудшило бы сайт ради цифры в отчёте, поэтому расхождение задокументировано, а не «залечено» отложенной загрузкой картинок.
 
@@ -105,6 +105,7 @@ lighthouse/            # замеры и проверки: score.mjs, qa-mobile.
 ```bash
 npm run build && npm run start        # прод-сборка на http://localhost:3000
 npm run lh -- home9                   # Lighthouse CLI → lighthouse/home9.json
+npm run lh -- live2 https://grossstadt.vercel.app   # тот же замер по живому домену
 npm run lh:score -- lighthouse/home9.json   # оценка Performance + наблюдаемые метрики
 node lighthouse/insights.mjs lighthouse/home9.json  # что именно тянет метрики вниз
 ```
